@@ -2,19 +2,12 @@
 	"name": "happy-coder",
 	"version": "0.11.2",
 	"description": "Mobile and Web client for Claude Code and Codex",
-	"author": "Kirill Dubovitskiy",
-	"license": "MIT",
-	"type": "module",
 	"homepage": "https://github.com/bazo/happy-coder",
 	"bugs": "https://github.com/bazo/happy-coder/issues",
 	"repository": "bazo/happy-coder",
-	"bin": {
-		"happy": "./bin/happy.mjs",
-		"happy-mcp": "./bin/happy-mcp.mjs"
-	},
-	"main": "./dist/index.cjs",
-	"module": "./dist/index.mjs",
-	"types": "./dist/index.d.cts",
+	"license": "MIT",
+	"author": "Kirill Dubovitskiy",
+	"type": "module",
 	"exports": {
 		".": {
 			"require": {
@@ -47,6 +40,13 @@
 			}
 		}
 	},
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.mjs",
+	"types": "./dist/index.d.cts",
+	"bin": {
+		"happy": "./bin/happy.mjs",
+		"happy-mcp": "./bin/happy-mcp.mjs"
+	},
 	"files": [
 		"dist",
 		"bin",
@@ -55,19 +55,24 @@
 		"package.json"
 	],
 	"scripts": {
-		"why do we need to build before running tests / dev?": "We need the binary to be built so we run daemon commands which directly run the binary - we don't want them to go out of sync or have custom spawn logic depending how we started happy",
-		"typecheck": "tsc --noEmit",
 		"build": "shx rm -rf dist && npx tsc --noEmit && pkgroll",
-		"test": "yarn build && tsx --env-file .env.integration-test node_modules/.bin/vitest run",
-		"start": "yarn build && ./bin/happy.mjs",
 		"dev": "tsx src/index.ts",
-		"dev:local-server": "yarn build && tsx --env-file .env.dev-local-server src/index.ts",
 		"dev:integration-test-env": "yarn build && tsx --env-file .env.integration-test src/index.ts",
-		"prepublishOnly": "yarn build && yarn test",
-		"release": "release-it",
+		"dev:local-server": "yarn build && tsx --env-file .env.dev-local-server src/index.ts",
+		"global:install": "bun i -g .",
 		"postinstall": "node scripts/unpack-tools.cjs",
 		"install:global": "npm run build && npm install -g .",
-		"global:install": "bun i -g ."
+		"prepublishOnly": "yarn build && yarn test",
+		"release": "release-it",
+		"start": "yarn build && ./bin/happy.mjs",
+		"test": "yarn build && tsx --env-file .env.integration-test node_modules/.bin/vitest run",
+		"typecheck": "tsc --noEmit",
+		"why do we need to build before running tests / dev?": "We need the binary to be built so we run daemon commands which directly run the binary - we don't want them to go out of sync or have custom spawn logic depending how we started happy"
+	},
+	"resolutions": {
+		"@types/parse-path": "7.0.3",
+		"parse-path": "7.0.3",
+		"whatwg-url": "14.2.0"
 	},
 	"dependencies": {
 		"@anthropic-ai/claude-code": "2.0.58",
@@ -115,13 +120,8 @@
 		"typescript": "^5",
 		"vitest": "^4.0.14"
 	},
-	"resolutions": {
-		"whatwg-url": "14.2.0",
-		"parse-path": "7.0.3",
-		"@types/parse-path": "7.0.3"
-	},
+	"packageManager": "yarn@1.22.22",
 	"publishConfig": {
 		"registry": "https://registry.npmjs.org"
-	},
-	"packageManager": "yarn@1.22.22"
+	}
 }
