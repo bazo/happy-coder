@@ -55,7 +55,7 @@ export class CodexMcpClient {
     constructor() {
         this.client = new Client(
             { name: 'happy-codex-client', version: '1.0.0' },
-            { capabilities: { tools: {}, elicitation: {} } }
+            { capabilities: { elicitation: {} } }
         );
 
         this.client.setNotificationHandler(z.object({
@@ -309,11 +309,11 @@ export class CodexMcpClient {
             logger.debug('[CodexMCP] client.close done');
         } catch (e) {
             logger.debug('[CodexMCP] Error closing client, attempting transport close directly', e);
-            try { 
+            try {
                 logger.debug('[CodexMCP] transport.close begin');
-                await this.transport?.close?.(); 
+                await this.transport?.close?.();
                 logger.debug('[CodexMCP] transport.close done');
-            } catch {}
+            } catch { }
         }
 
         // As a last resort, if child still exists, send SIGKILL
@@ -321,7 +321,7 @@ export class CodexMcpClient {
             try {
                 process.kill(pid, 0); // check if alive
                 logger.debug('[CodexMCP] Child still alive, sending SIGKILL');
-                try { process.kill(pid, 'SIGKILL'); } catch {}
+                try { process.kill(pid, 'SIGKILL'); } catch { }
             } catch { /* not running */ }
         }
 

@@ -33,7 +33,8 @@ export async function claudeRemote(opts: {
     onThinkingChange?: (thinking: boolean) => void,
     onMessage: (message: SDKMessage) => void,
     onCompletionEvent?: (message: string) => void,
-    onSessionReset?: () => void
+    onSessionReset?: () => void,
+    onModelChange?: (model: string | undefined) => void
 }) {
 
     // Check if session is valid
@@ -170,6 +171,11 @@ export async function claudeRemote(opts: {
                 updateThinking(true);
 
                 const systemInit = message as SDKSystemMessage;
+
+                // Track the model for cost calculation
+                if (systemInit.model && opts.onModelChange) {
+                    opts.onModelChange(systemInit.model);
+                }
 
                 // Session id is still in memory, wait until session file is written to disk
                 // Start a watcher for to detect the session id

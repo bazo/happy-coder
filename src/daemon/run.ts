@@ -15,11 +15,12 @@ import { getEnvironmentInfo } from '@/ui/doctor';
 import { spawnHappyCLI } from '@/utils/spawnHappyCLI';
 import { writeDaemonState, DaemonLocallyPersistedState, readDaemonState, acquireDaemonLock, releaseDaemonLock } from '@/persistence';
 
-import { cleanupDaemonState, isDaemonRunningCurrentlyInstalledHappyVersion, stopDaemon } from './controlClient';
+import { isDaemonRunningCurrentlyInstalledHappyVersion, stopDaemon } from './controlClient';
 import { startDaemonControlServer } from './controlServer';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { projectPath } from '@/projectPath';
+import { markDaemonStopped, markDaemonCrashed, updateDaemonChildPids } from '@/persistence';
 
 // Prepare initial metadata
 export const initialMachineMetadata: MachineMetadata = {
@@ -412,7 +413,11 @@ export async function startDaemon(): Promise<void> {
       httpPort: controlPort,
       startTime: new Date().toLocaleString(),
       startedWithCliVersion: packageJson.version,
-      daemonLogPath: logger.logFilePath
+      daemonLogPath: logger.logFilePath,
+      state: 'running',
+      stateReason: 'Daemon started successfully',
+      stateChangedAt: new Date().toISOString(),
+      childPids: []
     };
     writeDaemonState(fileState);
     logger.debug('[DAEMON RUN] Daemon state written');
@@ -519,17 +524,24 @@ export async function startDaemon(): Promise<void> {
 
       // Heartbeat
       try {
+        // Collect current child PIDs
+        const currentChildPids = Array.from(pidToTrackedSession.keys());
+
         const updatedState: DaemonLocallyPersistedState = {
           pid: process.pid,
           httpPort: controlPort,
           startTime: fileState.startTime,
           startedWithCliVersion: packageJson.version,
           lastHeartbeat: new Date().toLocaleString(),
-          daemonLogPath: fileState.daemonLogPath
+          daemonLogPath: fileState.daemonLogPath,
+          state: 'running',
+          stateReason: 'Healthy',
+          stateChangedAt: fileState.stateChangedAt,
+          childPids: currentChildPids
         };
         writeDaemonState(updatedState);
         if (process.env.DEBUG) {
-          logger.debug(`[DAEMON RUN] Health check completed at ${updatedState.lastHeartbeat}`);
+          logger.debug(`[DAEMON RUN] Health check completed at ${updatedState.lastHeartbeat}, tracking ${currentChildPids.length} child processes`);
         }
       } catch (error) {
         logger.debug('[DAEMON RUN] Failed to write heartbeat', error);
@@ -561,7 +573,13 @@ export async function startDaemon(): Promise<void> {
 
       apiMachine.shutdown();
       await stopControlServer();
-      await cleanupDaemonState();
+
+      // Mark daemon as stopped with reason (don't delete the state file)
+      const stopReason = source === 'exception'
+        ? `Crashed: ${errorMessage || 'Unknown error'}`
+        : `Stopped by ${source}`;
+      await markDaemonStopped(stopReason);
+
       await stopCaffeinate();
       await releaseDaemonLock(daemonLockHandle);
 
@@ -575,7 +593,12 @@ export async function startDaemon(): Promise<void> {
     const shutdownRequest = await resolvesWhenShutdownRequested;
     await cleanupAndShutdown(shutdownRequest.source, shutdownRequest.errorMessage);
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     logger.debug('[DAEMON RUN][FATAL] Failed somewhere unexpectedly - exiting with code 1', error);
+
+    // Mark daemon as crashed before exiting
+    await markDaemonCrashed(`Fatal error during startup: ${errorMessage}`);
+
     process.exit(1);
   }
 }

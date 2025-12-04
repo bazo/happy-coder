@@ -19,6 +19,8 @@ export class Session {
     mode: 'local' | 'remote' = 'local';
     thinking: boolean = false;
 
+    private keepAliveInterval: ReturnType<typeof setInterval> | null = null;
+
     constructor(opts: {
         api: ApiClient,
         client: ApiSessionClient,
@@ -46,9 +48,21 @@ export class Session {
 
         // Start keep alive
         this.client.keepAlive(this.thinking, this.mode);
-        setInterval(() => {
+        this.keepAliveInterval = setInterval(() => {
             this.client.keepAlive(this.thinking, this.mode);
         }, 2000);
+    }
+
+    /**
+     * Clean up resources held by this session.
+     * Must be called when the session is no longer needed to prevent memory leaks.
+     */
+    destroy = (): void => {
+        if (this.keepAliveInterval) {
+            clearInterval(this.keepAliveInterval);
+            this.keepAliveInterval = null;
+            logger.debug('[Session] Keep-alive interval cleared');
+        }
     }
 
     onThinkingChange = (thinking: boolean) => {

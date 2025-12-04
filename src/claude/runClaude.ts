@@ -43,10 +43,10 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
 
     // Validate daemon spawn requirements
     if (options.startedBy === 'daemon' && options.startingMode === 'local') {
-        logger.debug('Daemon spawn requested with local mode - forcing remote mode');
-        options.startingMode = 'remote';
-        // TODO: Eventually we should error here instead of silently switching
-        // throw new Error('Daemon-spawned sessions cannot use local/interactive mode');
+        throw new Error(
+            'Daemon-spawned sessions cannot use local/interactive mode. ' +
+            'Sessions started by the daemon must run in remote mode to allow mobile app control.'
+        );
     }
 
     // Create session service
@@ -59,7 +59,7 @@ export async function runClaude(credentials: Credentials, options: StartOptions 
     const settings = await readSettings();
     let machineId = settings?.machineId
     if (!machineId) {
-        console.error(`[START] No machine ID found in settings, which is unexepcted since authAndSetupMachineIfNeeded should have created it. Please report this issue on https://github.com/slopus/happy-cli/issues`);
+        console.error(`[START] No machine ID found in settings, which is unexepcted since authAndSetupMachineIfNeeded should have created it. Please report this issue on https://github.com/bazo/happy-coder/issues`);
         process.exit(1);
     }
     logger.debug(`Using machineId: ${machineId}`);

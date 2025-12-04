@@ -58,37 +58,43 @@ export async function loop(opts: LoopOptions) {
     }
 
     let mode: 'local' | 'remote' = opts.startingMode ?? 'local';
-    while (true) {
-        logger.debug(`[loop] Iteration with mode: ${mode}`);
+    try {
+        while (true) {
+            logger.debug(`[loop] Iteration with mode: ${mode}`);
 
-        // Run local mode if applicable
-        if (mode === 'local') {
-            let reason = await claudeLocalLauncher(session);
-            if (reason === 'exit') { // Normal exit - Exit loop
-                return;
+            // Run local mode if applicable
+            if (mode === 'local') {
+                let reason = await claudeLocalLauncher(session);
+                if (reason === 'exit') { // Normal exit - Exit loop
+                    return;
+                }
+
+                // Non "exit" reason means we need to switch to remote mode
+                mode = 'remote';
+                if (opts.onModeChange) {
+                    opts.onModeChange(mode);
+                }
+                continue;
             }
 
-            // Non "exit" reason means we need to switch to remote mode
-            mode = 'remote';
-            if (opts.onModeChange) {
-                opts.onModeChange(mode);
+            // Start remote mode
+            if (mode === 'remote') {
+                let reason = await claudeRemoteLauncher(session);
+                if (reason === 'exit') { // Normal exit - Exit loop
+                    return;
+                }
+
+                // Non "exit" reason means we need to switch to local mode
+                mode = 'local';
+                if (opts.onModeChange) {
+                    opts.onModeChange(mode);
+                }
+                continue;
             }
-            continue;
         }
-
-        // Start remote mode
-        if (mode === 'remote') {
-            let reason = await claudeRemoteLauncher(session);
-            if (reason === 'exit') { // Normal exit - Exit loop
-                return;
-            }
-
-            // Non "exit" reason means we need to switch to local mode
-            mode = 'local';
-            if (opts.onModeChange) {
-                opts.onModeChange(mode);
-            }
-            continue;
-        }
+    } finally {
+        // Clean up session resources (e.g., keep-alive interval)
+        session.destroy();
+        logger.debug('[loop] Session destroyed');
     }
 }

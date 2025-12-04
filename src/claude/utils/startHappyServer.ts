@@ -23,7 +23,7 @@ export async function startHappyServer(client: ApiSessionClient) {
                 summary: title,
                 leafUuid: randomUUID()
             });
-            
+
             return { success: true };
         } catch (error) {
             return { success: false, error: String(error) };
@@ -37,7 +37,6 @@ export async function startHappyServer(client: ApiSessionClient) {
     const mcp = new McpServer({
         name: "Happy MCP",
         version: "1.0.0",
-        description: "Happy CLI MCP server with chat session management tools",
     });
 
     mcp.registerTool('change_title', {
@@ -49,7 +48,7 @@ export async function startHappyServer(client: ApiSessionClient) {
     }, async (args) => {
         const response = await handler(args.title);
         logger.debug('[happyMCP] Response:', response);
-        
+
         if (response.success) {
             return {
                 content: [

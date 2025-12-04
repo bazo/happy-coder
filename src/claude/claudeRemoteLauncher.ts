@@ -389,6 +389,10 @@ export async function claudeRemoteLauncher(session: Session): Promise<'switch' |
                             );
                         }
                     },
+                    onModelChange: (model) => {
+                        // Update the session client's model for cost calculation
+                        session.client.setModel(model);
+                    },
                     signal: abortController.signal,
                 });
                 

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+FRESH=0
+
+# Parse args
+for arg in "$@"; do
+    case "$arg" in
+    --fresh)
+        FRESH=1
+        ;;
+    *)
+        # ignore other args or handle as needed
+        ;;
+    esac
+done
+
+if [[ "$FRESH" -eq 1 ]]; then
+    echo "Running fresh: happy --dangerously-skip-permissions"
+    happy --dangerously-skip-permissions
+else
+    echo "Running default: happy --dangerously-skip-permissions --continue"
+    happy --dangerously-skip-permissions --continue
+fi

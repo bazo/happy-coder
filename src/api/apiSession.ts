@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto';
 import { AsyncLock } from '@/utils/lock';
 import { RpcHandlerManager } from './rpc/RpcHandlerManager';
 import { registerCommonHandlers } from '../modules/common/registerCommonHandlers';
+import { calculateCost } from './pricing';
 
 export class ApiSessionClient extends EventEmitter {
     private readonly token: string;
@@ -26,6 +27,7 @@ export class ApiSessionClient extends EventEmitter {
     private metadataLock = new AsyncLock();
     private encryptionKey: Uint8Array;
     private encryptionVariant: 'legacy' | 'dataKey';
+    private currentModel: string | undefined;
 
     constructor(token: string, session: Session) {
         super()
@@ -286,16 +288,34 @@ export class ApiSessionClient extends EventEmitter {
     }
 
     /**
-     * Send usage data to the server
+     * Set the current model for cost calculation
+     * Call this when the model changes (e.g., from SDK system message or query options)
+     */
+    setModel(model: string | undefined) {
+        this.currentModel = model;
+        logger.debug(`[API] Model set to: ${model || 'default'}`);
+    }
+
+    /**
+     * Send usage data to the server with calculated costs
      */
     sendUsageData(usage: Usage) {
         // Calculate total tokens
         const totalTokens = usage.input_tokens + usage.output_tokens + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0);
 
+        // Calculate costs using the pricing module
+        const costBreakdown = calculateCost({
+            input_tokens: usage.input_tokens,
+            output_tokens: usage.output_tokens,
+            cache_creation_input_tokens: usage.cache_creation_input_tokens,
+            cache_read_input_tokens: usage.cache_read_input_tokens
+        }, this.currentModel);
+
         // Transform Claude usage format to backend expected format
         const usageReport = {
             key: 'claude-session',
             sessionId: this.sessionId,
+            model: this.currentModel,
             tokens: {
                 total: totalTokens,
                 input: usage.input_tokens,
@@ -304,11 +324,11 @@ export class ApiSessionClient extends EventEmitter {
                 cache_read: usage.cache_read_input_tokens || 0
             },
             cost: {
-                // TODO: Calculate actual costs based on pricing
-                // For now, using placeholder values
-                total: 0,
-                input: 0,
-                output: 0
+                total: costBreakdown.total,
+                input: costBreakdown.input,
+                output: costBreakdown.output,
+                cacheWrite: costBreakdown.cacheWrite,
+                cacheRead: costBreakdown.cacheRead
             }
         }
         logger.debugLargeJson('[SOCKET] Sending usage data:', usageReport)

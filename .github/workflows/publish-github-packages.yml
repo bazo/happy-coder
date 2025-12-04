@@ -1,0 +1,92 @@
+name: Publish to GitHub Packages
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (optional, uses package.json version if not provided)'
+        required: false
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@bazo'
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build package
+        run: yarn build
+
+      - name: Configure package for GitHub Packages
+        run: |
+          # GitHub Packages requires scoped packages
+          # Update package.json to use scoped name and GitHub Packages registry
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+
+            // Scope the package name for GitHub Packages
+            pkg.name = '@bazo/happy-coder';
+
+            // Update publishConfig for GitHub Packages
+            pkg.publishConfig = {
+              registry: 'https://npm.pkg.github.com',
+              access: 'public'
+            };
+
+            // Override version if provided via workflow dispatch
+            const inputVersion = '${{ inputs.version }}';
+            if (inputVersion) {
+              pkg.version = inputVersion;
+            }
+
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+            console.log('Updated package.json:');
+            console.log('  name:', pkg.name);
+            console.log('  version:', pkg.version);
+            console.log('  registry:', pkg.publishConfig.registry);
+          "
+
+      - name: Publish to GitHub Packages
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "## Published to GitHub Packages" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Package:** \`@bazo/happy-coder@${VERSION}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Installation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### With bun" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "bun install -g @bazo/happy-coder --registry https://npm.pkg.github.com" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### With npm" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "npm install -g @bazo/happy-coder --registry https://npm.pkg.github.com" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Note:** You need to authenticate with GitHub Packages first. See [GitHub Packages authentication](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-npm-registry#authenticating-to-github-packages)." >> $GITHUB_STEP_SUMMARY

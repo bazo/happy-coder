@@ -26,8 +26,23 @@ const defaultSettings: Settings = {
 }
 
 /**
+ * Lifecycle state of the daemon process
+ */
+export type DaemonLifecycleState =
+  | 'running'       // Daemon is actively running
+  | 'shutting-down' // Daemon is gracefully shutting down
+  | 'stopped'       // Daemon exited cleanly
+  | 'crashed';      // Daemon exited unexpectedly
+
+/**
  * Daemon state persisted locally (different from API DaemonState)
- * This is written to disk by the daemon to track its local process state
+ * This is written to disk by the daemon to track its local process state.
+ *
+ * Design: The state file is NOT deleted when daemon exits. Instead, the 'state'
+ * field indicates the daemon's lifecycle state. This allows:
+ * - Doctor to understand why daemon is not running
+ * - Debugging crash scenarios
+ * - Tracking child process cleanup needs
  */
 export interface DaemonLocallyPersistedState {
   pid: number;
@@ -36,6 +51,14 @@ export interface DaemonLocallyPersistedState {
   startedWithCliVersion: string;
   lastHeartbeat?: string;
   daemonLogPath?: string;
+
+  // Lifecycle tracking
+  state: DaemonLifecycleState;
+  stateReason?: string;
+  stateChangedAt?: string;
+
+  // Child process tracking for cleanup
+  childPids?: number[];
 }
 
 export async function readSettings(): Promise<Settings> {
@@ -241,7 +264,72 @@ export function writeDaemonState(state: DaemonLocallyPersistedState): void {
 }
 
 /**
- * Clean up daemon state file and lock file
+ * Update daemon state to indicate it has stopped.
+ * Unlike before, we don't delete the file - we update it with the final state.
+ */
+export async function markDaemonStopped(reason: string): Promise<void> {
+  try {
+    const currentState = await readDaemonState();
+    if (currentState) {
+      writeDaemonState({
+        ...currentState,
+        state: 'stopped',
+        stateReason: reason,
+        stateChangedAt: new Date().toISOString(),
+        childPids: [] // Clear child PIDs on clean stop
+      });
+    }
+  } catch {
+    // Ignore errors during cleanup
+  }
+
+  // Also clean up lock file if it exists (for stale cleanup)
+  if (existsSync(configuration.daemonLockFile)) {
+    try {
+      await unlink(configuration.daemonLockFile);
+    } catch {
+      // Lock file might be held by running daemon, ignore error
+    }
+  }
+}
+
+/**
+ * Mark daemon as crashed with a reason
+ */
+export async function markDaemonCrashed(reason: string): Promise<void> {
+  try {
+    const currentState = await readDaemonState();
+    if (currentState) {
+      writeDaemonState({
+        ...currentState,
+        state: 'crashed',
+        stateReason: reason,
+        stateChangedAt: new Date().toISOString()
+      });
+    }
+  } catch {
+    // Ignore errors during crash handling
+  }
+}
+
+/**
+ * Update child PIDs in daemon state
+ */
+export function updateDaemonChildPids(pids: number[]): void {
+  try {
+    const content = readFileSync(configuration.daemonStateFile, 'utf-8');
+    const currentState = JSON.parse(content) as DaemonLocallyPersistedState;
+    writeDaemonState({
+      ...currentState,
+      childPids: pids
+    });
+  } catch {
+    // Ignore errors - state file might not exist yet
+  }
+}
+
+/**
+ * Clean up daemon state file completely (for doctor/reset scenarios)
  */
 export async function clearDaemonState(): Promise<void> {
   if (existsSync(configuration.daemonStateFile)) {
