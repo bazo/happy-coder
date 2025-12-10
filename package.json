@@ -75,9 +75,9 @@
 		"whatwg-url": "14.2.0"
 	},
 	"dependencies": {
-		"@anthropic-ai/claude-code": "2.0.58",
-		"@anthropic-ai/sdk": "0.71.0",
-		"@modelcontextprotocol/sdk": "^1.23.0",
+		"@anthropic-ai/claude-code": "2.0.64",
+		"@anthropic-ai/sdk": "0.71.2",
+		"@modelcontextprotocol/sdk": "^1.24.3",
 		"@stablelib/base64": "^2.0.1",
 		"@stablelib/hex": "^2.0.1",
 		"@types/cross-spawn": "^6.0.6",
@@ -98,7 +98,7 @@
 		"open": "^10.2.0",
 		"ps-list": "^8.1.1",
 		"qrcode-terminal": "^0.12.0",
-		"react": "^19.2.0",
+		"react": "^19.2.1",
 		"socket.io-client": "^4.8.1",
 		"tar": "^7.5.2",
 		"tmp": "^0.2.5",
@@ -116,9 +116,9 @@
 		"release-it": "^19.0.6",
 		"shx": "^0.4.0",
 		"ts-node": "^10",
-		"tsx": "^4.20.6",
+		"tsx": "^4.21.0",
 		"typescript": "^5",
-		"vitest": "^4.0.14"
+		"vitest": "^4.0.15"
 	},
 	"packageManager": "yarn@1.22.22",
 	"publishConfig": {
